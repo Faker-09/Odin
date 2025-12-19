@@ -35,8 +35,9 @@ writer_init_with_buf :: proc(b: ^Writer, wr: io.Writer, buf: []byte) {
 	b.buf = buf
 }
 
-// writer_destroy destroys the underlying buffer with its associated allocator IFF that allocator has been set
+// writer_destroy flushes and then deletes the underlying buffer with its associated allocator IFF that allocator has been set
 writer_destroy :: proc(b: ^Writer) {
+	writer_flush(b)
 	delete(b.buf, b.buf_allocator)
 	b^ = {}
 }
