@@ -1185,17 +1185,41 @@ split_multi_iterator :: proc(s: ^[]byte, substrs: [][]byte, skip_empty := false)
 }
 
 
+/*
+Removes invalid utf-8 characters from a slice of bytes and optionally replaces them with a supplied []byte.
+Adjacent invalid bytes are only replaced once. Set always_copy to false to only allocate/copy when required.
 
+	Inputs:
+	- s: The slice of bytes to scrub.
+	- replacement: Optional slice to write in place of consecutive invalid bytes. (default: "")
+	- always_copy: Set to false to avoid copying completely valid slices. (default: false)
+	- allocator: (default: context.allocator)
+	Returns:
+	- result: A valid utf-8 slice of bytes.
+	- valid: True if all bytes can be decoded to valid utf8 runes.
+		*Allocates with Provided Allocator*
+*/
+scrub :: proc {
+	scrub_bytes,
+	scrub_string,
+}
+scrub_original :: proc(s: []byte, replacement: []byte, allocator := context.allocator, loc := #caller_location) -> []byte {
+	scrubbed, _ := scrub_bytes(s, replacement, true, allocator, loc)
+	return scrubbed
+}
 
-// Scrubs invalid utf-8 characters and replaces them with the replacement string
-// Adjacent invalid bytes are only replaced once
-scrub :: proc(s: []byte, replacement: []byte, allocator := context.allocator, loc := #caller_location) -> []byte {
+scrub_string :: proc(s: string, replacement: string = "☠️", always_copy := true, allocator := context.allocator, loc := #caller_location) -> (result: string, valid: bool) #optional_ok {
+	scrubbed, _valid := scrub_bytes(transmute([]byte)s, transmute([]byte)replacement, always_copy, allocator, loc)
+	return string(scrubbed), _valid
+}
+
+scrub_bytes :: proc(s: []byte, replacement: []byte = {}, always_copy := true, allocator := context.allocator, loc := #caller_location) -> (result: []byte, valid: bool) #optional_ok {
 	str := s
 	b: Buffer
-	buffer_init_allocator(&b, 0, len(s), allocator, loc)
+	buffer_init_allocator(&b, 0, always_copy ? len(s) : 0, allocator, loc)
 
-	has_error := false
-	cursor := 0
+	has_error : bool
+	cursor : int
 	origin := str
 
 	for len(str) > 0 {
@@ -1204,21 +1228,39 @@ scrub :: proc(s: []byte, replacement: []byte, allocator := context.allocator, lo
 		if r == utf8.RUNE_ERROR {
 			if !has_error {
 				has_error = true
-				buffer_write(&b, origin[:cursor], loc)
+				if cursor > 0 {
+					// Write accumulated valid runes
+					buffer_write(&b, origin[:cursor], loc)
+				}
 			}
-		} else if has_error {
-			has_error = false
-			buffer_write(&b, replacement, loc)
-
-			origin = origin[cursor:]
+			origin = origin[cursor + w:]
 			cursor = 0
+		} else {
+			if has_error {
+				has_error = false
+				if len(replacement) > 0 {
+					buffer_write(&b, replacement, loc)
+				}
+			}
+			// Valid rune, write it later
+			cursor += w
 		}
 
-		cursor += w
 		str = str[w:]
 	}
 
-	return buffer_to_bytes(&b)
+	valid = len(origin) == len(s)
+
+	switch {
+	case !always_copy && valid:
+		return {}, true
+	case has_error && len(replacement) > 0:
+		buffer_write(&b, replacement, loc)
+	case cursor > 0:
+		buffer_write(&b, origin, loc)
+	}
+
+	return buffer_to_bytes(&b), valid
 }
 
 
