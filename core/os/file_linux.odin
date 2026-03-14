@@ -63,8 +63,12 @@ _standard_stream_init :: proc "contextless" () {
 }
 
 _open :: proc(name: string, flags: File_Flags, perm: Permissions) -> (f: ^File, err: Error) {
-	temp_allocator := TEMP_ALLOCATOR_GUARD({})
-	name_cstr := clone_to_cstring(name, temp_allocator) or_return
+	//temp_allocator := TEMP_ALLOCATOR_GUARD({})
+	//name_cstr := clone_to_cstring(name, temp_allocator) or_return
+
+	b: [2048]u8
+	name_cstr := to_cstring(name, b[:])
+
 
 	// Just default to using O_NOCTTY because needing to open a controlling
 	// terminal would be incredibly rare. This has no effect on files while
@@ -308,8 +312,11 @@ _truncate :: proc(f: ^File, size: i64) -> Error {
 }
 
 _remove :: proc(name: string) -> Error {
-	temp_allocator := TEMP_ALLOCATOR_GUARD({})
-	name_cstr := clone_to_cstring(name, temp_allocator) or_return
+	//temp_allocator := TEMP_ALLOCATOR_GUARD({})
+	//name_cstr := clone_to_cstring(name, temp_allocator) or_return
+
+	b: [2048]u8
+	name_cstr := to_cstring(name, b[:])
 
 	if fd, errno := linux.open(name_cstr, _OPENDIR_FLAGS + {.NOFOLLOW}); errno == .NONE {
 		linux.close(fd)
@@ -367,8 +374,12 @@ _read_link :: proc(name: string, allocator: runtime.Allocator) -> (s: string, e:
 }
 
 _chdir :: proc(name: string) -> Error {
-	temp_allocator := TEMP_ALLOCATOR_GUARD({})
-	name_cstr := clone_to_cstring(name, temp_allocator) or_return
+	//temp_allocator := TEMP_ALLOCATOR_GUARD({})
+	//name_cstr := clone_to_cstring(name, temp_allocator) or_return
+
+	b: [2048]u8
+	name_cstr := to_cstring(name, b[:])
+
 	return _get_platform_error(linux.chdir(name_cstr))
 }
 

@@ -367,6 +367,14 @@ new_clone :: proc(data: $T, allocator := context.allocator, loc := #caller_locat
 	return
 }
 
+@(builtin, require_results)
+to_cstring :: #force_inline proc(str: string, buf: []u8) -> cstring {
+	copy(buf[:], str)
+	buf[len(str)] = 0
+	return cstring(&buf[0])
+}
+//to_cstring :: string_to_cstring
+
 DEFAULT_DYNAMIC_ARRAY_CAPACITY :: 8
 
 @(require_results)
