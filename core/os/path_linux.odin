@@ -216,7 +216,7 @@ _get_absolute_path :: proc(path: string, allocator: runtime.Allocator) -> (absol
 
 	temp_allocator := TEMP_ALLOCATOR_GUARD({ allocator })
 
-	fd, errno := linux.open(clone_to_cstring(path, temp_allocator) or_return, {})
+	fd, errno := linux.open(clone_to_cstring(rel, temp_allocator) or_return, {})
 	if errno != nil {
 		err = _get_platform_error(errno)
 		return
